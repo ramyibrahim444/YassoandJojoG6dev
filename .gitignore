@@ -1,0 +1,4 @@
+.playwright-mcp/
+*.png
+_smoke.js
+learning-progress.json
