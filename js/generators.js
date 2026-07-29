@@ -988,6 +988,580 @@ GEN.measurement = (rng) => {
   const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
 };
 
+/* ==========================================================================
+ * TIER 9 — CHALLENGE LEVEL (very hard, still ON the same Grade-6 topics)
+ * These overrides raise difficulty to the top of the scale. Difficulty comes
+ * from multi-step reasoning, awkward numbers and tougher distractors ONLY —
+ * no new topics are introduced; every item stays inside the child's strands.
+ * ========================================================================== */
+const lcm2 = (a, b) => a * b / gcd(a, b);
+
+/* ---------------------------- MATHS ----------------------------------- */
+GEN.data_mean_hard = (rng) => {
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { // missing value given the mean
+    let vals, missing, mean, n, guard = 0;
+    do { n = R.int(rng, 4, 6); mean = R.int(rng, 20, 60); vals = Array.from({ length: n - 1 }, () => R.int(rng, 10, 80)); missing = mean * n - vals.reduce((a, b) => a + b, 0); guard++; } while ((missing < 1 || missing > 150) && guard < 40);
+    return mcqNum(rng, `The mean of ${n} numbers is ${mean}. Four of them are ${vals.join(", ")}. Find the missing number.`, missing, [mean, mean * n, missing + 10, missing - 10], `Total must be ${mean}\u00D7${n}=${mean * n}. Subtract the known ${vals.reduce((a, b) => a + b, 0)} \u2192 ${missing}.`);
+  }
+  if (t === 1) { // combined mean of two groups
+    let a, b, ma, mb, mean, guard = 0;
+    do { a = R.int(rng, 3, 6); b = R.int(rng, 3, 6); ma = R.int(rng, 10, 30); mb = R.int(rng, 10, 30); mean = (a * ma + b * mb) / (a + b); guard++; } while (!Number.isInteger(mean) && guard < 40);
+    const total = a * ma + b * mb;
+    return mcqNum(rng, `A group of ${a} pupils has a mean score of ${ma}. A second group of ${b} pupils has a mean of ${mb}. What is the mean of all ${a + b} pupils together?`, mean, [Math.round((ma + mb) / 2), ma + mb, mean + 2, mean - 2], `Total marks = ${a}\u00D7${ma}+${b}\u00D7${mb}=${total}. Divide by ${a + b}: ${mean}.`);
+  }
+  let data, sum, n = 6, guard = 0;
+  do { data = Array.from({ length: n }, () => R.int(rng, 20, 90)); sum = data.reduce((a, b) => a + b, 0); const rem = sum % n; data[0] -= rem; sum -= rem; guard++; } while (data[0] < 1 && guard < 40);
+  const mean = sum / n;
+  return mcqNum(rng, `Find the mean of these six numbers: ${data.join(", ")}.`, mean, [mean + 3, mean - 4, Math.max(...data), Math.round(sum / (n - 1))], `Add all six (${sum}) and divide by ${n}: ${mean}.`);
+};
+
+GEN.data_median = (rng) => {
+  const even = rng() < 0.5;
+  const n = even ? R.int(rng, 3, 4) * 2 : R.int(rng, 3, 4) * 2 + 1;
+  const data = Array.from({ length: n }, () => R.int(rng, 5, 60));
+  const sorted = data.slice().sort((a, b) => a - b);
+  let med;
+  if (n % 2) med = sorted[(n - 1) / 2]; else med = (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+  const ans = Number.isInteger(med) ? med : +med.toFixed(1);
+  return mcqNum(rng, `Find the MEDIAN of this data \u2014 remember to order it first:  ${data.join(", ")}.`, ans, [+((data[0] + data[n - 1]) / 2).toFixed(1), sorted[Math.floor(n / 2)], ans + 1, ans - 2], `In order: ${sorted.join(", ")}. ${n % 2 ? `The middle value is ${ans}.` : `Average the two middle values (${sorted[n / 2 - 1]} & ${sorted[n / 2]}) \u2192 ${ans}.`}`);
+};
+
+GEN.data_mode = (rng) => {
+  const vals = R.shuffle(rng, [2, 3, 4, 5, 6, 7]).slice(0, 4);
+  const freqs = R.shuffle(rng, [2, 4, 5, 7]);
+  let maxi = 0; for (let i = 1; i < 4; i++) if (freqs[i] > freqs[maxi]) maxi = i;
+  const rows = vals.map((v, i) => `size ${v} \u2192 ${freqs[i]} pupils`).join(",  ");
+  return mcqNum(rng, `A survey of shoe sizes gave:  ${rows}.  Which size is the MODE?`, vals[maxi], vals.filter((_, i) => i !== maxi), `The mode has the highest frequency (${freqs[maxi]} pupils) \u2192 size ${vals[maxi]}.`);
+};
+
+GEN.data_range = (rng) => {
+  if (rng() < 0.5) {
+    const min = R.int(rng, 3, 20), range = R.int(rng, 15, 40), max = min + range;
+    return mcqNum(rng, `A data set has a range of ${range} and its smallest value is ${min}. What is the largest value?`, max, [range, Math.floor(min + range / 2), max + min, range - min], `Range = largest \u2212 smallest, so largest = ${min} + ${range} = ${max}.`);
+  }
+  const data = Array.from({ length: 6 }, () => R.int(rng, -10, 40));
+  const range = Math.max(...data) - Math.min(...data);
+  return mcqNum(rng, `Find the RANGE of:  ${data.join(", ")}  (watch the negative numbers!).`, range, [Math.max(...data) + Math.min(...data), Math.max(...data), range + 5, range - 3], `Range = biggest (${Math.max(...data)}) \u2212 smallest (${Math.min(...data)}) = ${range}.`);
+};
+
+GEN.graph_read = (rng) => {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const vals = days.map(() => R.int(rng, 2, 9) * 5);
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { const tot = vals.reduce((a, b) => a + b, 0); return mcqNum(rng, `A bar chart shows books read: ${days.map((d, i) => d + " " + vals[i]).join(", ")}. How many books were read in total?`, tot, [tot - vals[0], Math.round(tot / 5), tot + 5, tot - 10], `Add all five bars: ${vals.join("+")} = ${tot}.`); }
+  if (t === 1) { const mean = Math.round(vals.reduce((a, b) => a + b, 0) / 5); const hi = Math.max(...vals); return mcqNum(rng, `A bar chart shows: ${days.map((d, i) => d + " " + vals[i]).join(", ")}. How many MORE than the daily mean (${mean}) was the busiest day?`, hi - mean, [hi, mean, hi - Math.min(...vals), hi + mean], `Busiest = ${hi}; mean = ${mean}; difference = ${hi - mean}.`); }
+  let a = R.int(rng, 0, 4), b = R.int(rng, 0, 4); if (b === a) b = (b + 1) % 5;
+  const diff = Math.abs(vals[a] - vals[b]);
+  return mcqNum(rng, `On the chart, ${days[a]} = ${vals[a]} and ${days[b]} = ${vals[b]}. How many more were read on the higher day?`, diff, [vals[a] + vals[b], diff + 5, Math.round(diff / 2), Math.max(diff - 5, 1)], `Difference = |${vals[a]} \u2212 ${vals[b]}| = ${diff}.`);
+};
+
+GEN.bar_compare = (rng) => {
+  const b = R.int(rng, 2, 8) * 3, mult = R.int(rng, 2, 4), a = b * mult;
+  if (rng() < 0.5) return mcqNum(rng, `Team A scored ${a} points and Team B scored ${b}. Team A's score is how many TIMES Team B's?`, mult, [a - b, a + b, mult + 1, b], `${a} \u00F7 ${b} = ${mult} times.`);
+  const diff = a - b;
+  return mcqNum(rng, `Team A scored ${a} and Team B scored ${b}. How many points did Team A win by?`, diff, [a + b, diff + 3, Math.round(diff / 2), Math.max(diff - 3, 1)], `Difference = ${a} \u2212 ${b} = ${diff}.`);
+};
+
+GEN.frac_to_dec_pct = (rng) => {
+  const set = [[1, 8, 0.125, 12.5], [3, 8, 0.375, 37.5], [5, 8, 0.625, 62.5], [7, 8, 0.875, 87.5], [1, 20, 0.05, 5], [3, 20, 0.15, 15], [7, 20, 0.35, 35], [9, 20, 0.45, 45], [2, 5, 0.4, 40], [1, 40, 0.025, 2.5]];
+  const p = R.pick(rng, set);
+  if (rng() < 0.5) return mcqNum(rng, `Write ${p[0]}/${p[1]} as a DECIMAL.`, p[2], [+(p[2] * 10).toFixed(3), +(p[2] / 2).toFixed(3), +(p[2] + 0.05).toFixed(3), +(p[0] / (p[1] + 1)).toFixed(3)], `${p[0]} \u00F7 ${p[1]} = ${p[2]}.`);
+  return mcqNum(rng, `Write ${p[0]}/${p[1]} as a PERCENTAGE.`, p[3], [p[3] * 2, +(p[3] / 2).toFixed(1), p[3] + 5, p[1] - p[0]], `${p[0]}/${p[1]} = ${p[2]} = ${p[3]}%.`);
+};
+
+GEN.simplify_fraction = (rng) => {
+  const g = R.int(rng, 4, 12), a = R.int(rng, 2, 7), b = a + R.int(rng, 1, 6), N = a * g, D = b * g;
+  return mcq(rng, `Write ${N}/${D} in its LOWEST terms.`, `${a}/${b}`, [`${a + 1}/${b}`, `${a}/${b + 1}`, `${a + 1}/${b + 1}`], `The HCF of ${N} and ${D} is ${g}; divide both \u2192 ${a}/${b}.`);
+};
+
+GEN.add_sub_fraction = (rng) => {
+  const d1 = R.pick(rng, [2, 3, 4, 5, 6]); let d2 = R.pick(rng, [3, 4, 5, 6, 8]); if (d2 === d1) d2 = (d1 === 8 ? 6 : d1 + 1);
+  let n1 = R.int(rng, 1, d1 - 1), n2 = R.int(rng, 1, d2 - 1);
+  let D1 = d1, D2 = d2;
+  const L = lcm2(d1, d2);
+  let A = n1 * (L / d1), B = n2 * (L / d2), num, sign;
+  const add = rng() < 0.6;
+  if (add) { num = A + B; sign = "+"; }
+  else { if (A < B) { let t = A; A = B; B = t; t = n1; n1 = n2; n2 = t; t = D1; D1 = D2; D2 = t; } num = A - B; sign = "\u2212"; }
+  const g = gcd(Math.max(1, num), L), rn = num / g, rd = L / g;
+  const ansStr = rd === 1 ? `${rn}` : `${rn}/${rd}`;
+  return mcq(rng, `Work out  ${n1}/${D1} ${sign} ${n2}/${D2}  and give your answer in its lowest terms.`, ansStr, [`${n1 + n2}/${D1 + D2}`, `${rn + 1}/${rd}`, `${rn}/${rd + 2}`], `Use the common denominator ${L}: ${A}/${L} ${sign} ${B}/${L} = ${num}/${L}${g > 1 ? ` = ${ansStr}` : ""}.`);
+};
+
+GEN.frac_of = (rng) => {
+  const den = R.pick(rng, [3, 4, 5, 6, 8]), num = R.int(rng, 1, den - 1), whole = den * R.int(rng, 4, 12), part = whole * num / den;
+  if (rng() < 0.5) { const remain = whole - part; return mcqNum(rng, `In a school of ${whole} pupils, ${num}/${den} walk to school. How many do NOT walk?`, remain, [part, whole, remain + den, Math.max(remain - num, 1)], `Walkers = ${num}/${den} \u00D7 ${whole} = ${part}. Not walking = ${whole} \u2212 ${part} = ${remain}.`); }
+  return mcqNum(rng, `What is ${num}/${den} of ${whole}?`, part, [whole - part, Math.round(whole / den), part + num, Math.floor(whole / Math.max(num, 1))], `${whole} \u00F7 ${den} = ${whole / den}, then \u00D7 ${num} = ${part}.`);
+};
+
+GEN.ratio_simple = (rng) => {
+  let [a, b, c] = R.shuffle(rng, [1, 2, 3, 4, 5, 6]).slice(0, 3);
+  const g0 = gcd(gcd(a, b), c); a /= g0; b /= g0; c /= g0;
+  const part = R.int(rng, 2, 8), total = (a + b + c) * part, mx = Math.max(a, b, c), mn = Math.min(a, b, c);
+  if (rng() < 0.5) return mcqNum(rng, `Three friends share ${total} marbles in the ratio ${a}:${b}:${c}. How many does the friend with the LARGEST share get?`, mx * part, [mn * part, total, part, mx * part + part], `Parts = ${a + b + c}. One part = ${total} \u00F7 ${a + b + c} = ${part}. Largest = ${mx} \u00D7 ${part}.`);
+  return mcq(rng, `Simplify the ratio  ${a * part} : ${b * part} : ${c * part}  to its simplest form.`, `${a}:${b}:${c}`, [`${b}:${a}:${c}`, `${a * 2}:${b * 2}:${c * 2}`, `${a + 1}:${b}:${c}`], `Divide all three by ${part}: ${a}:${b}:${c}.`);
+};
+
+GEN.ratio_share = (rng) => {
+  let [a, b] = R.shuffle(rng, [2, 3, 4, 5, 7]).slice(0, 2);
+  const part = R.int(rng, 3, 9), total = (a + b) * part, mx = Math.max(a, b), mn = Math.min(a, b), t = R.int(rng, 0, 2);
+  if (t === 0) return mcqNum(rng, `\u00A3${total} is shared in the ratio ${a}:${b}. How much is the SMALLER share?`, mn * part, [mx * part, total, part, mn * part + part], `One part = \u00A3${part}. Smaller share = ${mn} \u00D7 ${part}.`);
+  if (t === 1) { const diff = (mx - mn) * part; return mcqNum(rng, `Two people share money in the ratio ${a}:${b}. One receives \u00A3${diff} MORE than the other. How much was shared altogether?`, total, [diff, mx * part, total + part, diff * 2], `The difference is ${mx - mn} part(s) = \u00A3${diff}, so one part = \u00A3${part}. Total = ${a + b} parts = \u00A3${total}.`); }
+  const bigger = mx * part;
+  return mcqNum(rng, `Sweets are shared in the ratio ${a}:${b}. The larger share is ${bigger} sweets. How many sweets were there in total?`, total, [bigger, mn * part, total + part, bigger + part], `Larger = ${mx} parts = ${bigger}, so one part = ${part}. Total = ${a + b} parts = ${total}.`);
+};
+
+GEN.decimal_ops = (rng) => {
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { const a = R.int(rng, 15, 80) / 10, b = R.int(rng, 2, 9), c = R.int(rng, 11, 40) / 10, ans = +(a * b - c).toFixed(2); return mcqNum(rng, `Work out  ${a} \u00D7 ${b} \u2212 ${c}.`, ans, [+(a * b - c + 1).toFixed(2), +((a - c) * b).toFixed(2), +(a * b + c).toFixed(2), +(ans - 0.5).toFixed(2)], `\u00D7 before \u2212: ${a}\u00D7${b}=${+(a * b).toFixed(2)}; then \u2212${c} = ${ans}.`); }
+  if (t === 1) { const q = R.int(rng, 12, 60) / 10, n = R.pick(rng, [2, 4, 5]), a = +(q * n).toFixed(1); return mcqNum(rng, `Work out  ${a} \u00F7 ${n}.`, q, [+(a - n).toFixed(2), +(q + 0.5).toFixed(2), +(a / (n + 1)).toFixed(2), +(q - 0.3).toFixed(2)], `${a} \u00F7 ${n} = ${q}.`); }
+  const a = R.int(rng, 10, 50) / 100, b = R.int(rng, 10, 90) / 100, ans = +(a + b).toFixed(2);
+  return mcqNum(rng, `Work out  ${a} + ${b}.`, ans, [+(a * b).toFixed(3), +(ans + 0.1).toFixed(2), +Math.abs(a - b).toFixed(2), +(ans - 0.02).toFixed(2)], `Line up the decimal points: ${a} + ${b} = ${ans}.`);
+};
+
+GEN.percentage = (rng) => {
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { const pct = R.pick(rng, [5, 10, 20, 25, 40, 50]), whole = R.int(rng, 3, 15) * 20, part = whole * pct / 100; return mcqNum(rng, `${pct}% of a number is ${part}. What is the number?`, whole, [part, part * 2, whole + pct, part + pct], `If ${pct}% = ${part}, then 1% = ${part / pct}, so 100% = ${whole}.`); }
+  if (t === 1) return mcqNum(rng, `A \u00A3200 jacket rises in price by 20%, then is reduced by 20% in a sale. What is the final price?`, 192, [200, 208, 184, 196], `+20% \u2192 \u00A3240; then \u221220% of 240 = \u00A348 \u2192 \u00A3192 (it does NOT return to \u00A3200).`);
+  const whole = R.int(rng, 3, 15) * 20, pct = R.pick(rng, [15, 35, 45, 65, 12]), part = whole * pct / 100, ans = Number.isInteger(part) ? part : +part.toFixed(2);
+  return mcqNum(rng, `Find ${pct}% of ${whole}.`, ans, [whole - pct, +(ans + pct).toFixed(2), +(ans / 2).toFixed(2), +(whole * pct / 1000).toFixed(2)], `${pct}% = ${pct}/100 \u00D7 ${whole} = ${ans}.`);
+};
+
+GEN.integers = (rng) => {
+  const a = R.int(rng, -9, -2), b = R.int(rng, 2, 9), c = R.int(rng, -8, -2), t = R.int(rng, 0, 2);
+  if (t === 0) { const ans = a - b * c; return mcqNum(rng, `Work out  ${a} \u2212 ${b} \u00D7 (${c}).`, ans, [(a - b) * c, a - b + c, a + b * c, ans + 2], `\u00D7 first: ${b}\u00D7(${c})=${b * c}; ${a}\u2212(${b * c})=${ans}.`); }
+  if (t === 1) { const ans = (a + c) * b; return mcqNum(rng, `Work out  (${a} + ${c}) \u00D7 ${b}.`, ans, [a + c * b, a * b + c, ans + b, -ans], `Brackets first: ${a}+(${c})=${a + c}; \u00D7${b}=${ans}.`); }
+  const d = R.int(rng, 2, 6), val = b * d, ans = a - val / d;
+  return mcqNum(rng, `Work out  ${a} \u2212 ${val} \u00F7 ${d}.`, ans, [(a - val) / d, a - val, ans + d, -ans], `\u00F7 first: ${val}\u00F7${d}=${val / d}; ${a}\u2212${val / d}=${ans}.`);
+};
+
+GEN.order_ops_hard = (rng) => {
+  const a = R.int(rng, 2, 6), b = R.int(rng, 2, 6), c = R.int(rng, 2, 5), d = R.int(rng, 2, 6), t = R.int(rng, 0, 2);
+  if (t === 0) { const ans = a * (b + c) - d * d; return mcqNum(rng, `Work out  ${a} \u00D7 (${b} + ${c}) \u2212 ${d}\u00B2.`, ans, [a * b + c - d * d, (a * b + c - d) * d, a * (b + c) - d * 2, ans + d], `Brackets ${b + c}, \u00D7${a}=${a * (b + c)}; ${d}\u00B2=${d * d}; subtract \u2192 ${ans}.`); }
+  if (t === 1) { const inner = b + c, ans = a * a - inner * d; return mcqNum(rng, `Work out  ${a}\u00B2 \u2212 (${b} + ${c}) \u00D7 ${d}.`, ans, [(a * a - inner) * d, a * 2 - inner * d, a * a - inner + d, ans - 1], `${a}\u00B2=${a * a}; (${b}+${c})\u00D7${d}=${inner * d}; ${a * a}\u2212${inner * d}=${ans}.`); }
+  const q = R.int(rng, 2, 6), prod = b * q, ans = a + prod / b - c;
+  return mcqNum(rng, `Work out  ${a} + ${prod} \u00F7 ${b} \u2212 ${c}.`, ans, [(a + prod) / b - c, a + prod / b + c, a + Math.floor(prod / (b * c)), ans + 2], `\u00F7 before + and \u2212: ${prod}\u00F7${b}=${prod / b}; ${a}+${prod / b}\u2212${c}=${ans}.`);
+};
+
+GEN.algebra_eval = (rng) => {
+  const x = R.int(rng, 2, 6), y = R.int(rng, 2, 6);
+  if (rng() < 0.5) { const a = R.int(rng, 2, 5), b = R.int(rng, 2, 5), ans = a * x * x - b * y; return mcqNum(rng, `If x = ${x} and y = ${y}, find the value of  ${a}x\u00B2 \u2212 ${b}y.`, ans, [a * x * 2 - b * y, a * x - b * y, a * x * x + b * y, ans + a], `x\u00B2=${x * x}; ${a}\u00D7${x * x}=${a * x * x}; \u2212${b}\u00D7${y}=${ans}.`); }
+  const a = R.int(rng, 2, 5), b = R.int(rng, 2, 6), c = R.int(rng, 1, 9), ans = a * x * y + b * x - c;
+  return mcqNum(rng, `If x = ${x} and y = ${y}, find the value of  ${a}xy + ${b}x \u2212 ${c}.`, ans, [a * (x + y) + b * x - c, a * x * y + b - c, a * x * y + b * x + c, ans - 2], `xy=${x * y}; ${a}\u00D7${x * y}=${a * x * y}; +${b}\u00D7${x}=${a * x * y + b * x}; \u2212${c}=${ans}.`);
+};
+
+GEN.algebra_solve = (rng) => {
+  const x = R.int(rng, 2, 9);
+  if (rng() < 0.5) { const a = R.int(rng, 3, 7), c = R.int(rng, 1, a - 1), b = R.int(rng, 1, 10), d = b + (a - c) * x; return mcqNum(rng, `Solve for x:   ${a}x + ${b} = ${c}x + ${d}`, x, [x + 1, x - 1, d - b, x + 2], `Subtract ${c}x from both sides: ${a - c}x + ${b} = ${d}. Subtract ${b}: ${a - c}x = ${d - b}. Divide by ${a - c}: x = ${x}.`); }
+  const a = R.int(rng, 2, 5), b = R.int(rng, 1, 6), rhs = a * (x + b);
+  return mcqNum(rng, `Solve for x:   ${a}(x + ${b}) = ${rhs}`, x, [x + b, x + 1, rhs - b, x - 1], `Divide by ${a}: x + ${b} = ${rhs / a}. Subtract ${b}: x = ${x}.`);
+};
+
+GEN.mensuration = (rng) => {
+  const t = R.int(rng, 0, 3);
+  if (t === 0) { const w = R.int(rng, 3, 12), l = R.int(rng, 4, 15), area = w * l; return mcqNum(rng, `A rectangle has an area of ${area} cm\u00B2 and a width of ${w} cm. Find its LENGTH.`, l, [area - w, area, l + w, Math.round(area / (w + 1))], `Length = area \u00F7 width = ${area} \u00F7 ${w} = ${l} cm.`); }
+  if (t === 1) { const A = R.int(rng, 8, 14), B = R.int(rng, 6, 12), a = R.int(rng, 2, A - 3), b = R.int(rng, 2, B - 3), ans = A * B - a * b; return mcqNum(rng, `An L-shape is a ${A} cm \u00D7 ${B} cm rectangle with a ${a} cm \u00D7 ${b} cm corner cut out. Find its area.`, ans, [A * B + a * b, A * B, 2 * (A + B), ans - a], `Whole rectangle ${A}\u00D7${B}=${A * B}; remove ${a}\u00D7${b}=${a * b}; area = ${ans} cm\u00B2.`); }
+  if (t === 2) { const l = R.int(rng, 2, 6), w = R.int(rng, 2, 6), h = R.int(rng, 2, 6), ans = 2 * (l * w + w * h + l * h); return mcqNum(rng, `Find the total SURFACE AREA of a cuboid measuring ${l} \u00D7 ${w} \u00D7 ${h} cm.`, ans, [l * w * h, l * w + w * h + l * h, 2 * (l + w + h), ans + l], `SA = 2(lw+wh+lh) = 2(${l * w}+${w * h}+${l * h}) = ${ans} cm\u00B2.`); }
+  const b = R.int(rng, 3, 12), h = R.int(rng, 2, 6) * 2, tri = b * h / 2;
+  return mcqNum(rng, `A triangle has an area of ${tri} cm\u00B2 and a base of ${b} cm. Find its HEIGHT.`, h, [h + 2, Math.max(h - 3, 1), b, tri], `Area = \u00BD \u00D7 base \u00D7 height, so height = 2 \u00D7 area \u00F7 base = ${2 * tri} \u00F7 ${b} = ${h} cm.`);
+};
+
+GEN.hcf_lcm = (rng) => {
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { const a = R.pick(rng, [4, 6, 8, 9, 12]), b = R.pick(rng, [5, 6, 10, 15]), l = lcm2(a, b); return mcqNum(rng, `One bell rings every ${a} minutes and another every ${b} minutes. If they ring together now, after how many minutes will they NEXT ring together?`, l, [a * b, a + b, gcd(a, b), l + a], `They coincide at the LCM of ${a} and ${b} = ${l} minutes.`); }
+  if (t === 1) { const g = R.int(rng, 3, 9), a = g * R.int(rng, 2, 5), b = g * R.int(rng, 2, 5), G = gcd(a, b); return mcqNum(rng, `Two ribbons are ${a} cm and ${b} cm long. They are cut into equal pieces that are as LONG as possible with none left over. How long is each piece?`, G, [a * b, a + b, Math.min(a, b), G + 1], `The longest equal piece = HCF of ${a} and ${b} = ${G} cm.`); }
+  const a = R.int(rng, 2, 6), b = R.int(rng, 2, 6), c = R.int(rng, 2, 6), l = lcm2(lcm2(a, b), c);
+  return mcqNum(rng, `Find the LCM of ${a}, ${b} and ${c}.`, l, [a * b * c, a + b + c, gcd(gcd(a, b), c), l + a], `The smallest number all three divide into exactly is ${l}.`);
+};
+
+GEN.prob_fraction = (rng) => {
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { const r = R.int(rng, 2, 5), b = R.int(rng, 2, 5), g = R.int(rng, 2, 5), y = R.int(rng, 1, 4), tot = r + b + g + y, gg = gcd(r + b, tot); return mcq(rng, `A spinner has ${r} red, ${b} blue, ${g} green and ${y} yellow equal sections. What is P(red OR blue), in lowest terms?`, `${(r + b) / gg}/${tot / gg}`, [`${r + b}/${tot + 1}`, `${r}/${tot}`, `${g + y}/${tot}`], `Red or blue = ${r + b} of ${tot} sections = ${(r + b) / gg}/${tot / gg}.`); }
+  if (t === 1) { const r = R.int(rng, 3, 6), b = R.int(rng, 3, 6), tot = r + b; return mcq(rng, `A bag has ${r} red and ${b} blue counters. One red counter is taken out and NOT replaced. What is the probability the next counter is red?`, `${r - 1}/${tot - 1}`, [`${r}/${tot}`, `${r - 1}/${tot}`, `${r}/${tot - 1}`], `After removing a red, ${r - 1} red remain out of ${tot - 1} counters \u2192 ${r - 1}/${tot - 1}.`); }
+  const s = R.int(rng, 1, 6);
+  return mcq(rng, `Two fair dice are rolled. What is the probability that BOTH show a ${s}?`, "1/36", ["1/6", "2/6", "1/12"], `P(first = ${s}) \u00D7 P(second = ${s}) = 1/6 \u00D7 1/6 = 1/36.`);
+};
+
+GEN.probability_simple = (rng) => {
+  const bank = [
+    { q: "a number greater than 4", a: "1/3", d: ["2/6", "1/6", "1/2"] },
+    { q: "a prime number (2, 3 or 5)", a: "1/2", d: ["1/3", "2/6", "3/5"] },
+    { q: "a multiple of 3", a: "1/3", d: ["1/2", "2/3", "1/6"] },
+    { q: "a factor of 6", a: "2/3", d: ["1/2", "1/3", "4/5"] }
+  ];
+  const p = R.pick(rng, bank);
+  return mcq(rng, `A fair 6-sided dice is rolled. What is the probability of ${p.q}? Give your answer in lowest terms.`, p.a, p.d, `Count the winning faces out of 6 and simplify \u2192 ${p.a}.`);
+};
+
+GEN.read_clock = (rng) => {
+  const h1 = R.int(rng, 6, 10), m1 = R.pick(rng, [5, 10, 20, 25, 35, 40, 50, 55]), durM = R.int(rng, 1, 3) * 60 + R.pick(rng, [5, 15, 25, 35, 45, 50]);
+  const end = h1 * 60 + m1 + durM, H = Math.floor(end / 60) % 24, M = end % 60, mm = String(m1).padStart(2, "0"), MM = String(M).padStart(2, "0");
+  return mcq(rng, `A journey starts at ${h1}:${mm} and takes ${Math.floor(durM / 60)} h ${durM % 60} min. What time does it finish?`, `${H}:${MM}`, [`${(H + 1) % 24}:${MM}`, `${H}:${String((M + 30) % 60).padStart(2, "0")}`, `${(H + 2) % 24}:${MM}`], `Add ${Math.floor(durM / 60)} h ${durM % 60} min to ${h1}:${mm} \u2192 ${H}:${MM}.`);
+};
+
+GEN.time_hard = (rng) => {
+  const t = R.int(rng, 0, 2), fmt = (x) => String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0");
+  if (t === 0) { const s = R.int(rng, 6, 14) * 60 + R.pick(rng, [0, 15, 30, 45]), dur = R.int(rng, 60, 300), e = s + dur; return mcq(rng, `A train leaves at ${fmt(s)} and arrives at ${fmt(e)} (24-hour clock). How long is the journey?`, `${Math.floor(dur / 60)} h ${dur % 60} min`, [`${Math.floor(dur / 60) + 1} h ${dur % 60} min`, `${Math.floor(dur / 60)} h ${(dur % 60 + 15) % 60} min`, `${Math.ceil(dur / 60)} h`], `From ${fmt(s)} to ${fmt(e)} is ${Math.floor(dur / 60)} h ${dur % 60} min.`); }
+  if (t === 1) { const a = R.int(rng, 20, 50), b = R.int(rng, 20, 50), c = R.int(rng, 20, 50), tot = a + b + c; return mcq(rng, `Three lessons last ${a} min, ${b} min and ${c} min. What is the total time?`, `${Math.floor(tot / 60)} h ${tot % 60} min`, [`${Math.floor(tot / 60)} h ${(tot % 60 + 10) % 60} min`, `${Math.ceil(tot / 60)} h`, `${Math.floor(tot / 60) + 1} h ${tot % 60} min`], `${a}+${b}+${c}=${tot} min = ${Math.floor(tot / 60)} h ${tot % 60} min.`); }
+  const h = R.int(rng, 13, 23), m = R.pick(rng, [5, 17, 23, 41, 48]), h12 = h - 12, mm = String(m).padStart(2, "0");
+  return mcq(rng, `Write ${h}:${mm} (24-hour clock) as a 12-hour time.`, `${h12}:${mm} pm`, [`${h}:${mm} am`, `${h12}:${mm} am`, `${h12 + 1}:${mm} pm`], `Subtract 12 and add pm: ${h12}:${mm} pm.`);
+};
+
+/* ---------------------------- ENGLISH --------------------------------- */
+GEN.active_passive = (rng) => {
+  const set = [["The manager will review the report.", "The report will be reviewed by the manager."], ["They are building a new stadium.", "A new stadium is being built by them."], ["Someone has stolen my bike.", "My bike has been stolen."], ["The teacher was marking the essays.", "The essays were being marked by the teacher."], ["We must obey the rules.", "The rules must be obeyed."], ["The storm had destroyed the crops.", "The crops had been destroyed by the storm."], ["Nobody can solve this puzzle.", "This puzzle cannot be solved."]];
+  const p = R.pick(rng, set), wrongs = set.filter(x => x[1] !== p[1]).map(x => x[1]);
+  return mcq(rng, `Rewrite in the PASSIVE voice, keeping the SAME tense:  "${p[0]}"`, p[1], R.shuffle(rng, wrongs).slice(0, 3), `Keep the tense; object moves to the front + correct form of 'be' + past participle. \u2192 "${p[1]}"`);
+};
+
+GEN.direct_indirect = (rng) => {
+  const set = [[`She asked, "Where are you going?"`, `She asked where I was going.`], [`He said, "Close the door."`, `He told me to close the door.`], [`"Did you finish the work?" she asked.`, `She asked whether I had finished the work.`], [`Mum said, "I will call you tomorrow."`, `Mum said that she would call me the next day.`], [`"Don't touch that," he warned.`, `He warned me not to touch that.`], [`They asked, "Can we leave now?"`, `They asked if they could leave then.`]];
+  const p = R.pick(rng, set), wrongs = set.filter(x => x[1] !== p[1]).map(x => x[1]);
+  return mcq(rng, `Choose the correct reported (indirect) speech:   ${p[0]}`, p[1], R.shuffle(rng, wrongs).slice(0, 3), `Shift the tense back, change pronouns and time words (tomorrow \u2192 the next day, now \u2192 then). \u2192 ${p[1]}`);
+};
+
+GEN.tense_hard = (rng) => {
+  const set = [
+    { s: "If I ___ known, I would have helped.", a: "had", d: ["have", "would", "was"] },
+    { s: "By next June she ___ here for ten years.", a: "will have worked", d: ["will work", "has worked", "is working"] },
+    { s: "They wish they ___ more time yesterday.", a: "had had", d: ["have had", "had", "would have"] },
+    { s: "He ___ for two hours when the bus finally came.", a: "had been waiting", d: ["was waiting", "has waited", "waited"] },
+    { s: "No sooner ___ we arrived than it started to rain.", a: "had", d: ["have", "did", "were"] },
+    { s: "Look at those clouds \u2014 it ___ to rain.", a: "is going", d: ["goes", "will go", "has gone"] }
+  ];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Choose the correct verb form:  "${p.s}"`, p.a, p.d, `Correct: "${p.a}".`);
+};
+
+GEN.punctuation_hard = (rng) => {
+  const set = [
+    { q: "Which sentence is punctuated correctly?", a: `My best friend, who lives in Cairo, is visiting; she arrives on Friday.`, d: [`My best friend who lives in Cairo, is visiting, she arrives on Friday.`, `My best friend, who lives in Cairo is visiting; she arrives on Friday.`, `My best friend who lives in Cairo is visiting she arrives on Friday.`] },
+    { q: "Which sentence uses the colon correctly?", a: `The recipe needs three things: flour, eggs and milk.`, d: [`The recipe needs three things; flour, eggs and milk.`, `The recipe needs: three things flour, eggs and milk.`, `The recipe needs three things, flour, eggs and milk.`] },
+    { q: "Which sentence is punctuated correctly?", a: `"I can't believe it!" she exclaimed. "We've won!"`, d: [`"I can't believe it! she exclaimed. We've won!"`, `"I can't believe it!" she exclaimed "we've won!"`, `"I cant believe it!" she exclaimed. "Weve won!"`] },
+    { q: "Which sentence uses the semicolon correctly?", a: `Some people write with a pen; others prefer a pencil.`, d: [`Some people write with a pen, others prefer a pencil.`, `Some people write with a pen; and others prefer a pencil.`, `Some people write with a pen: others prefer a pencil.`] }
+  ];
+  const p = R.pick(rng, set);
+  return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}`);
+};
+
+GEN.question_tag = (rng) => {
+  const set = [["I am late,", "aren't I?"], ["Let's go,", "shall we?"], ["Open the window,", "will you?"], ["Nobody phoned,", "did they?"], ["Everyone enjoyed it,", "didn't they?"], ["There's a problem,", "isn't there?"], ["He hardly ever calls,", "does he?"], ["You'd better hurry,", "hadn't you?"]];
+  const p = R.pick(rng, set), wrongs = set.filter(x => x[1] !== p[1]).map(x => x[1]);
+  return mcq(rng, `Add the correct question tag:  "${p[0]} ___"`, p[1], R.shuffle(rng, wrongs).slice(0, 3), `Watch the tricky cases (I am \u2192 aren't I; Let's \u2192 shall we; 'nobody'/'hardly' act negative). \u2192 "${p[0]} ${p[1]}"`);
+};
+
+GEN.parts_of_speech = (rng) => {
+  const set = [["We will water the plants.", "water", "Verb"], ["The water is cold.", "water", "Noun"], ["Turn left at the corner.", "left", "Adverb"], ["He hurt his left hand.", "left", "Adjective"], ["They book tickets online.", "book", "Verb"], ["I read a good book.", "book", "Noun"], ["She sang beautifully.", "beautifully", "Adverb"], ["He sat near the fire.", "near", "Preposition"], ["Although it rained, we played.", "Although", "Conjunction"], ["Wow, what a goal!", "Wow", "Interjection"]];
+  const p = R.pick(rng, set), all = ["Noun", "Verb", "Adjective", "Adverb", "Preposition", "Conjunction", "Interjection", "Pronoun"];
+  return mcq(rng, `In the sentence "${p[0]}", what part of speech is the word "${p[1]}"?`, p[2], R.shuffle(rng, all.filter(x => x !== p[2])).slice(0, 3), `Here "${p[1]}" works as a ${p[2].toLowerCase()}.`);
+};
+
+GEN.degrees_comparison = (rng) => {
+  if (rng() < 0.5) {
+    const set = [["He is more taller than me.", "He is taller than me."], ["This is the most easiest question.", "This is the easiest question."], ["She runs more faster than him.", "She runs faster than him."], ["It was the worse day ever.", "It was the worst day ever."], ["He is gooder at maths than me.", "He is better at maths than me."]];
+    const p = R.pick(rng, set), wrongs = set.filter(x => x[1] !== p[1]).map(x => x[1]);
+    return mcq(rng, `Choose the CORRECT version of:  "${p[0]}"`, p[1], R.shuffle(rng, wrongs).slice(0, 3), `Never double up (more + -er) and use irregular forms. \u2192 "${p[1]}"`);
+  }
+  const set = [["little (amount)", "less", "least"], ["good", "better", "best"], ["bad", "worse", "worst"], ["far", "farther", "farthest"], ["many", "more", "most"]];
+  const p = R.pick(rng, set), which = R.int(rng, 1, 2), label = which === 1 ? "comparative" : "superlative", ans = p[which];
+  const wrongs = [p[which === 1 ? 2 : 1], p[0] + "er", p[0] + "est"].filter(x => x !== ans);
+  return mcq(rng, `Give the ${label} form of "${p[0]}".`, ans, wrongs.slice(0, 3), `"${p[0]}" is irregular: comparative "${p[1]}", superlative "${p[2]}".`);
+};
+
+GEN.articles = (rng) => {
+  const set = [["We climbed ___ Alps last summer.", "the"], ["___ honesty is the best policy.", "(no article)"], ["She plays ___ violin beautifully.", "the"], ["He is ___ MP for our town.", "an"], ["They sent him to ___ prison for a year.", "(no article)"], ["I saw ___ unicorn in the story.", "a"], ["___ Everest is the tallest mountain.", "(no article)"], ["What ___ interesting idea!", "an"]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Choose the correct article (or 'no article'):  "${p[0]}"`, p[1], ["a", "an", "the", "(no article)"].filter(x => x !== p[1]).slice(0, 3), `Correct: ${p[1] === "(no article)" ? "no article is needed" : `"${p[1]}"`}. Abstract nouns, most single mountains and 'go to prison' take no article.`);
+};
+
+GEN.vocab_hard = (rng) => {
+  const t = R.int(rng, 0, 3);
+  if (t === 0) { const set = [["benevolent", "kind", "cruel", "confused", "tiny"], ["diligent", "hard-working", "lazy", "cheerful", "noisy"], ["candid", "honest", "secretive", "clumsy", "brave"], ["meticulous", "very careful", "careless", "angry", "generous"], ["abundant", "plentiful", "scarce", "heavy", "quiet"], ["reluctant", "unwilling", "eager", "tired", "proud"]]; const p = R.pick(rng, set); return mcq(rng, `Choose the word closest in meaning to "${p[0]}".`, p[1], [p[2], p[3], p[4]], `"${p[0]}" means "${p[1]}".`); }
+  if (t === 1) { const bank = [["frequently", "rarely"], ["ancient", "modern"], ["expand", "shrink"], ["generous", "selfish"], ["temporary", "permanent"], ["increase", "decrease"]]; const p = R.pick(rng, bank), others = bank.filter(x => x[0] !== p[0]).map(x => x[1]); return mcq(rng, `Choose the ANTONYM (opposite) of "${p[0]}".`, p[1], R.shuffle(rng, others).slice(0, 3), `The opposite of "${p[0]}" is "${p[1]}".`); }
+  if (t === 2) { const set = [["tele", "television, telephone", "far off"], ["aqua", "aquarium, aquatic", "water"], ["bio", "biology, biography", "life"], ["geo", "geography, geology", "the earth"], ["port", "transport, portable", "to carry"], ["dict", "dictate, predict", "to say"]]; const p = R.pick(rng, set); return mcq(rng, `The root "${p[0]}" (as in ${p[1]}) means...`, p[2], ["a colour", "a number", "a sound"].slice(0, 3), `The root "${p[0]}" means "${p[2]}".`); }
+  const set = [["bite the bullet", "face something difficult bravely"], ["the last straw", "the final problem that makes you give up"], ["cost an arm and a leg", "be very expensive"], ["on thin ice", "in a risky situation"], ["read between the lines", "find a hidden meaning"], ["the ball is in your court", "it is your turn to act or decide"]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `What does the idiom "${p[0]}" mean?`, p[1], ["a type of sport", "a kind of weather", "a cooking method"], `"${p[0]}" means to ${p[1]}.`);
+};
+
+GEN.subject_verb = (rng) => {
+  const set = [["Neither of the boys ___ ready.", "is", ["are", "were", "be"]], ["The team ___ winning every match this season.", "is", ["are", "were", "been"]], ["Each of the students ___ a book.", "has", ["have", "having", "are"]], ["Mathematics ___ my favourite subject.", "is", ["are", "were", "be"]], ["There ___ several reasons for this.", "are", ["is", "was", "be"]], ["Neither the teacher nor the pupils ___ happy.", "are", ["is", "was", "has"]], ["The news ___ very surprising.", "is", ["are", "were", "have"]]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Choose the correct verb:  "${p[0]}"`, p[1], p[2], `Correct: "${p[1]}".`);
+};
+
+GEN.apostrophe = (rng) => {
+  const set = [["the toys belonging to the children", "the children's toys", ["the childrens' toys", "the childrens toys", "the children's toy's"]], ["the changing rooms for the ladies", "the ladies' changing rooms", ["the ladie's changing rooms", "the ladies changing room's", "the lady's changing rooms"]], ["the office of the boss", "the boss's office", ["the bosses office", "the boss' office's", "the bosses' office"]], ["the books of the two teachers", "the two teachers' books", ["the two teacher's books", "the two teachers books", "the two teachers's books"]]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Which is written correctly for: ${p[0]}?`, p[1], p[2], `Correct: ${p[1]}.`);
+};
+
+GEN.sentence_order = (rng) => {
+  const set = [
+    ["First, preheat the oven.", "Next, mix the flour and sugar.", "Then pour the mixture into a tin.", "Finally, bake for twenty minutes."],
+    ["Long ago, a poor farmer found a golden egg.", "At first, he could not believe his luck.", "Soon, he grew greedy and wanted more.", "In the end, he lost everything."],
+    ["The alarm rang loudly at six.", "Yawning, Omar climbed out of bed.", "After a quick breakfast, he grabbed his bag.", "He just caught the bus as it pulled away."]
+  ];
+  const p = R.pick(rng, set), correct = p.join(" ");
+  const sw = (i, j) => { const a = p.slice();[a[i], a[j]] = [a[j], a[i]]; return a.join(" "); };
+  return mcq(rng, `Put these sentences in the best order:\n\u2022 ${R.shuffle(rng, p).join("\n\u2022 ")}\n\nWhich order is correct?`, correct, [sw(0, 1), sw(2, 3), sw(0, 3)], `Use the time words (First, Next, Then, Finally) and the logic of what happens.`);
+};
+
+GEN.spelling_choose = (rng) => {
+  const set = [["nec___ary", "ess", ["es", "essi", "as"]], ["defin___ly", "ite", ["ate", "it", "itly"]], ["sep___ate", "ar", ["er", "ir", "or"]], ["embarr___", "ass", ["as", "ess", "iss"]], ["occ___ion", "as", ["ass", "ac", "es"]], ["priv___ge", "ile", ["ele", "ila", "elo"]], ["rhy___m", "th", ["thm", "tm", "them"]], ["consci___", "ous", ["ious", "us", "ent"]]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Complete the spelling correctly:  ${p[0].replace("___", "____")}`, p[1], p[2], `The correct spelling is "${p[0].replace("___", p[1])}".`);
+};
+
+GEN.homophone = (rng) => {
+  const set = [["The knight rode his horse ___ the castle.", "to", ["too", "two", "tow"]], ["They left ___ coats over ___.", "their / there", ["there / their", "they're / their", "their / they're"]], ["The weather will ___ affect the trip.", "definitely", ["defiantly", "definately", "defintly"]], ["I could not ___ the loud music.", "bear", ["bare", "bair", "bere"]], ["Please give me a ___ of advice.", "piece", ["peace", "peece", "peic"]], ["The team lost ___ their star player was injured.", "because", ["becuase", "becouse", "bcause"]]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Choose the correct word(s):  "${p[0]}"`, p[1], p[2], `The correct choice is "${p[1]}".`);
+};
+
+GEN.plural_form = (rng) => {
+  const set = [["knife", "knives", ["knifes", "knifves", "knife's"]], ["potato", "potatoes", ["potatos", "potatoe", "potato's"]], ["child", "children", ["childs", "childrens", "childes"]], ["mouse", "mice", ["mouses", "mices", "mouse's"]], ["leaf", "leaves", ["leafs", "leafes", "leave"]], ["crisis", "crises", ["crisises", "crisiss", "crisi"]], ["cactus", "cacti", ["cactuses", "cactus's", "cactusi"]], ["woman", "women", ["womans", "womens", "womin"]]];
+  const p = R.pick(rng, set);
+  return mcq(rng, `What is the correct plural of "${p[0]}"?`, p[1], p[2], `The plural of "${p[0]}" is "${p[1]}".`);
+};
+
+/* ---------------------------- SCIENCE --------------------------------- */
+GEN.biology_facts = (rng) => {
+  const set = [
+    { q: "Which blood vessels carry blood AWAY from the heart?", a: "Arteries", d: ["Veins", "Capillaries", "Nerves"] },
+    { q: "In which organ does gas exchange (oxygen in, carbon dioxide out) happen?", a: "The lungs", d: ["The stomach", "The liver", "The kidneys"] },
+    { q: "Which part of a plant takes in water and minerals from the soil?", a: "The roots", d: ["The leaves", "The flower", "The stem"] },
+    { q: "What is produced when we breathe out?", a: "Carbon dioxide and water vapour", d: ["Oxygen", "Nitrogen only", "Glucose"] },
+    { q: "Which organ removes waste and makes urine?", a: "The kidney", d: ["The heart", "The lung", "The liver"] },
+    { q: "Insects that move pollen between flowers are called...", a: "Pollinators", d: ["Predators", "Decomposers", "Producers"] },
+    { q: "Which food group gives us the quickest source of energy?", a: "Carbohydrates", d: ["Proteins", "Vitamins", "Fibre"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.food_chain = (rng) => {
+  const set = [
+    { q: "In the food chain  grass \u2192 grasshopper \u2192 frog \u2192 snake, what is the frog?", a: "A secondary consumer (and prey for the snake)", d: ["A producer", "A primary consumer", "A decomposer"] },
+    { q: "If all the grass in  grass \u2192 rabbit \u2192 fox  died, what happens FIRST?", a: "The rabbit population falls", d: ["The fox population rises", "Nothing changes", "More grass grows"] },
+    { q: "What do the ARROWS in a food chain show?", a: "The direction energy flows (eaten \u2192 eater)", d: ["Which animal is bigger", "The order of size", "Who is fastest"] },
+    { q: "In any food chain, where does the energy originally come from?", a: "The Sun", d: ["The soil", "The water", "The predators"] },
+    { q: "An organism that eats both plants and animals is a...", a: "Omnivore", d: ["Herbivore", "Carnivore", "Producer"] },
+    { q: "Which organisms return nutrients to the soil by breaking down dead matter?", a: "Decomposers", d: ["Producers", "Predators", "Prey"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.ecosystem_roles = (rng) => {
+  const set = [
+    { q: "Green plants are called producers because they...", a: "make their own food by photosynthesis", d: ["eat other animals", "break down dead things", "hunt for prey"] },
+    { q: "A hawk that hunts mice is best described as a...", a: "Predator", d: ["Producer", "Prey", "Decomposer"] },
+    { q: "If the number of foxes (predators) suddenly rose, the number of rabbits (prey) would probably...", a: "fall", d: ["rise", "stay exactly the same", "become producers"] },
+    { q: "Why can a food WEB show an ecosystem better than a single food chain?", a: "It shows that animals eat several different things", d: ["It uses more arrows for decoration", "It is always shorter", "It only shows plants"] },
+    { q: "A habitat provides an organism with...", a: "food, water and shelter", d: ["only sunlight", "only predators", "only oxygen"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.body_systems = (rng) => {
+  const set = [
+    { q: "Which system works with the heart to carry oxygen around the body?", a: "The circulatory (blood) system", d: ["The digestive system", "The skeletal system", "The nervous system"] },
+    { q: "The diaphragm is a muscle used mainly for...", a: "breathing", d: ["digesting food", "pumping blood", "thinking"] },
+    { q: "Which system breaks food down so nutrients can be absorbed?", a: "The digestive system", d: ["The respiratory system", "The skeletal system", "The circulatory system"] },
+    { q: "Why must the skeleton have joints?", a: "So the body can bend and move", d: ["To make us taller only", "To store food", "To pump blood"] },
+    { q: "Which system carries messages between the brain and the body?", a: "The nervous system", d: ["The digestive system", "The circulatory system", "The muscular system"] },
+    { q: "Muscles usually work in pairs because a muscle can only...", a: "pull, not push", d: ["push, not pull", "grow, not shrink", "bend bones"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.life_processes = (rng) => {
+  const set = [
+    { q: "A scientist finds an object that moves and uses energy but never grows or reproduces. Is it alive?", a: "No \u2014 it must do ALL seven life processes", d: ["Yes, because it moves", "Yes, because it uses energy", "Only if it is warm"] },
+    { q: "Which life process is a plant carrying out when it turns to face the Sun?", a: "Sensitivity", d: ["Excretion", "Reproduction", "Digestion"] },
+    { q: "'Respiration' as a life process means...", a: "releasing energy from food inside cells", d: ["only breathing in and out", "getting rid of waste", "growing bigger"] },
+    { q: "Getting rid of waste products made by the body is called...", a: "Excretion", d: ["Nutrition", "Respiration", "Reproduction"] },
+    { q: "Which pair of life processes both help a species SURVIVE over time?", a: "Reproduction and nutrition", d: ["Movement and excretion", "Sensitivity and respiration", "Growth and movement"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.life_process_scenario = (rng) => {
+  const set = [
+    ["A plant's roots grow downwards towards water.", "Sensitivity"],
+    ["A cat has a litter of kittens.", "Reproduction"],
+    ["A seedling gets taller each week.", "Growth"],
+    ["You sweat on a hot day.", "Excretion"],
+    ["A dog pants and its muscles release energy to run.", "Respiration"],
+    ["A Venus flytrap snaps shut when a fly lands.", "Sensitivity"],
+    ["A tree takes in carbon dioxide and makes glucose.", "Nutrition"]
+  ];
+  const p = R.pick(rng, set), all = ["Movement", "Respiration", "Sensitivity", "Growth", "Reproduction", "Excretion", "Nutrition"];
+  return mcq(rng, `Which life process is shown here?  "${p[0]}"`, p[1], R.shuffle(rng, all.filter(x => x !== p[1])).slice(0, 3), `${p[0]} \u2014 this is ${p[1]}.`);
+};
+
+GEN.fair_test = (rng) => {
+  const set = [
+    { q: "You test how far a toy car rolls from different ramp heights. What should you CHANGE?", a: "The height of the ramp", d: ["The car you use", "The floor surface", "The ramp length"] },
+    { q: "In that ramp experiment, which is the thing you MEASURE (the outcome)?", a: "The distance the car rolls", d: ["The ramp height", "The colour of the car", "The time of day"] },
+    { q: "Why do scientists repeat measurements and take an average?", a: "To make results more reliable and reduce error", d: ["To use more paper", "To make it take longer", "To change the answer"] },
+    { q: "In a fair test, the variables you keep the same are called the...", a: "control variables", d: ["independent variable", "dependent variable", "conclusion"] },
+    { q: "To test which fertiliser grows the tallest plant, what must stay the same?", a: "Water, light and pot size", d: ["The type of fertiliser", "Nothing at all", "The height measured"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.fair_test_scenario = (rng) => {
+  const set = [
+    { q: "Investigation: does water temperature affect how fast sugar dissolves? The INDEPENDENT variable (what you change) is...", a: "the water temperature", d: ["how fast it dissolves", "the amount of sugar", "the size of the cup"] },
+    { q: "In that same test, the DEPENDENT variable (what you measure) is...", a: "the time taken to dissolve", d: ["the water temperature", "the type of sugar", "the stirring"] },
+    { q: "A pupil tests plant growth in light and dark but also gives the dark plant less water. Why is the test NOT fair?", a: "Two variables were changed, so you can't tell which caused the result", d: ["Plants don't need light", "The test took too long", "Dark plants grow faster"] },
+    { q: "Which result is the most RELIABLE?", a: "One repeated three times with similar readings", d: ["A single reading", "A reading nobody wrote down", "A guess"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.scientific_method = (rng) => {
+  const set = [
+    { q: "A 'prediction' in an experiment is best described as...", a: "what you think will happen, and why, before you test", d: ["the equipment list", "the final result", "a random guess with no reason"] },
+    { q: "Your results do NOT match your prediction. What should a good scientist do?", a: "Report the real results honestly and try to explain them", d: ["Change the results to match", "Hide the experiment", "Ignore the results"] },
+    { q: "Which is a CONCLUSION rather than just a result?", a: "'The higher the ramp, the further the car rolled, because it gained more speed.'", d: ["'The car rolled 40 cm.'", "'We used a ramp.'", "'The car was red.'"] },
+    { q: "Data that is written as numbers you can measure is called...", a: "quantitative data", d: ["an opinion", "a prediction", "a variable"] },
+    { q: "Putting results in a table or graph mainly helps you to...", a: "spot patterns and trends", d: ["use more colours", "make it longer", "avoid conclusions"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.solar_system = (rng) => {
+  const set = [
+    { q: "Why do we have day and night?", a: "The Earth spins (rotates) once every 24 hours", d: ["The Sun switches off", "The Earth orbits the Sun once a day", "The Moon blocks the Sun"] },
+    { q: "Why does a year last about 365 days?", a: "That is how long Earth takes to orbit the Sun once", d: ["Earth spins 365 times a day", "The Moon orbits Earth once", "The Sun orbits Earth"] },
+    { q: "Which correctly lists the first four planets from the Sun?", a: "Mercury, Venus, Earth, Mars", d: ["Venus, Earth, Mars, Mercury", "Earth, Mars, Mercury, Venus", "Mars, Earth, Venus, Mercury"] },
+    { q: "The Moon appears to shine because it...", a: "reflects light from the Sun", d: ["makes its own light", "is a small star", "is on fire"] },
+    { q: "Why does the Sun look bigger and brighter than other stars?", a: "It is much closer to Earth", d: ["It is the biggest star", "It is the hottest star", "Other stars are switched off"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.space_physics_facts = (rng) => {
+  const set = [
+    { q: "What keeps the planets moving in orbit around the Sun?", a: "Gravity", d: ["Magnetism", "Friction", "Air pressure"] },
+    { q: "A shadow is formed because light...", a: "travels in straight lines and is blocked by an object", d: ["bends around objects", "is made by the object", "disappears at night"] },
+    { q: "Where would an astronaut weigh the LEAST?", a: "On the Moon (weaker gravity)", d: ["On Earth", "At the bottom of the sea", "On a mountain"] },
+    { q: "As the Earth rotates, a shadow from a stick will...", a: "change length and direction through the day", d: ["stay exactly the same", "disappear at noon", "point the same way all day"] },
+    { q: "Gravity on the Moon is about one sixth of Earth's. A 60 N weight on Earth would be about ___ on the Moon.", a: "10 N", d: ["60 N", "360 N", "6 N"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.circuits = (rng) => {
+  const set = [
+    { q: "In a SERIES circuit, if you add another bulb, the bulbs will...", a: "get dimmer", d: ["get brighter", "stay exactly the same", "switch off completely"] },
+    { q: "Why does a circuit stop working if there is a break in the wire?", a: "The current needs a complete loop to flow", d: ["The battery runs out instantly", "The bulb melts", "Electricity leaks out"] },
+    { q: "Which material would you use to make the wires in a circuit?", a: "Copper (a conductor)", d: ["Plastic", "Rubber", "Wood"] },
+    { q: "Adding a second cell (battery) the correct way round will make a bulb...", a: "brighter", d: ["dimmer", "go out", "change colour"] },
+    { q: "What is the job of a switch in a circuit?", a: "To make or break the loop to turn things on/off", d: ["To store electricity", "To make more current", "To measure voltage"] },
+    { q: "Which of these is an insulator (does NOT let current pass)?", a: "Rubber", d: ["Iron", "Copper", "Steel"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.cells = (rng) => {
+  const set = [
+    { q: "Which part controls what enters and leaves an animal cell?", a: "The cell membrane", d: ["The nucleus", "The cytoplasm", "The cell wall"] },
+    { q: "A plant cell has a chloroplast but an animal cell does not. Why?", a: "Only plant cells photosynthesise to make food", d: ["Animal cells are bigger", "Animal cells have no nucleus", "Plant cells cannot move"] },
+    { q: "Which THREE parts are found in BOTH plant and animal cells?", a: "Nucleus, cytoplasm and cell membrane", d: ["Cell wall, chloroplast and nucleus", "Chloroplast, vacuole and cell wall", "Cell wall, membrane and chloroplast"] },
+    { q: "The nucleus is often called the 'control centre' because it...", a: "contains the instructions (genes) for the cell", d: ["makes energy", "stores water", "gives the cell its shape"] },
+    { q: "A large permanent vacuole full of sap is a feature of...", a: "plant cells", d: ["animal cells", "all cells equally", "only red blood cells"] },
+    { q: "Why do many similar cells group together to form a tissue?", a: "To carry out the same job more effectively", d: ["To make the organism smaller", "So each cell can be different", "To stop growth"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.photosynthesis = (rng) => {
+  const set = [
+    { q: "Which word equation correctly summarises photosynthesis?", a: "carbon dioxide + water \u2192 glucose + oxygen", d: ["glucose + oxygen \u2192 carbon dioxide + water", "oxygen + water \u2192 glucose + carbon dioxide", "carbon dioxide + oxygen \u2192 glucose + water"] },
+    { q: "A plant is kept in the dark for a week. What is most likely to happen and why?", a: "It weakens, because without light it cannot make food", d: ["It grows faster to find light", "Nothing, plants don't need light", "It makes more oxygen"] },
+    { q: "Which gas do plants TAKE IN for photosynthesis?", a: "Carbon dioxide", d: ["Oxygen", "Nitrogen", "Hydrogen"] },
+    { q: "Photosynthesis mainly happens in the leaves because they...", a: "contain the most chloroplasts and catch the most light", d: ["are the heaviest part", "have no water", "are underground"] },
+    { q: "What is the MAIN purpose of the glucose a plant makes?", a: "To provide energy and material for growth", d: ["To colour the flowers", "To attract rain", "To cool the plant"] },
+    { q: "Which factor would SPEED UP photosynthesis?", a: "More light and more carbon dioxide", d: ["Total darkness", "Removing all water", "Colder temperatures only"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.measurement = (rng) => {
+  const t = R.int(rng, 0, 2);
+  if (t === 0) { const m = R.int(rng, 12, 90) / 10, cm = m * 100; return mcqNum(rng, `Convert ${m} metres into centimetres.`, cm, [m * 10, m * 1000, cm + 10, m + 100], `1 m = 100 cm, so ${m} \u00D7 100 = ${cm} cm.`); }
+  if (t === 1) { const g = R.int(rng, 250, 950); return mcq(rng, `A jug holds ${g} ml of juice. How is this written in litres?`, `${(g / 1000).toFixed(3)} l`, [`${g * 1000} l`, `${(g / 100).toFixed(2)} l`, `${g} l`], `1 litre = 1000 ml, so ${g} ml = ${(g / 1000).toFixed(3)} l.`); }
+  const items = [["the mass of an apple", "grams", ["kilometres", "litres", "seconds"]], ["the length of a football pitch", "metres", ["millilitres", "grams", "degrees"]], ["the volume of water in a bottle", "millilitres", ["metres", "grams", "hours"]], ["the temperature of a room", "degrees Celsius", ["grams", "metres", "litres"]]];
+  const p = R.pick(rng, items);
+  return mcq(rng, `Which unit is most sensible for measuring ${p[0]}?`, p[1], p[2], `The best unit is ${p[1]}.`);
+};
+
+GEN.phys_chem_change = (rng) => {
+  const set = [
+    ["Ice melting into water", "Physical", "it can be reversed and no new substance is made"],
+    ["Wood burning to ash and smoke", "Chemical", "a new substance forms and it cannot easily be reversed"],
+    ["Dissolving sugar in tea", "Physical", "the sugar is still there and could be recovered"],
+    ["An iron nail rusting", "Chemical", "a new substance (rust) is made"],
+    ["Baking a cake", "Chemical", "new substances form and it cannot be undone"],
+    ["Boiling water into steam", "Physical", "only the state changes and it can be reversed"],
+    ["Milk turning sour", "Chemical", "a new substance forms"],
+    ["Cutting paper into pieces", "Physical", "it is still paper, only the shape changed"]
+  ];
+  const p = R.pick(rng, set);
+  return mcq(rng, `Is this a PHYSICAL or CHEMICAL change:  "${p[0]}"?`, p[1], p[1] === "Physical" ? ["Chemical", "Neither", "Both at once"] : ["Physical", "Neither", "Both at once"], `${p[1]} change \u2014 ${p[2]}.`);
+};
+
+GEN.elements_compounds = (rng) => {
+  const set = [
+    { q: "Which of these is a COMPOUND (two or more elements chemically joined)?", a: "Water (H\u2082O)", d: ["Oxygen", "Iron", "Gold"] },
+    { q: "Which is an ELEMENT \u2014 a substance made of only one kind of atom?", a: "Copper", d: ["Salt", "Water", "Carbon dioxide"] },
+    { q: "A mixture is different from a compound because a mixture...", a: "can be separated without a chemical reaction", d: ["is always a liquid", "has only one element", "cannot be separated"] },
+    { q: "Air is best described as a...", a: "mixture of gases", d: ["single element", "compound", "pure substance"] },
+    { q: "Which method separates salt from salty water?", a: "Evaporation", d: ["Filtering", "Magnetism", "Freezing only"] },
+    { q: "Which method would separate sand from water?", a: "Filtering", d: ["Evaporation", "Magnetism", "Melting"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.forces_machines = (rng) => {
+  const set = [
+    { q: "A book rests on a table without moving. What can you say about the forces on it?", a: "They are balanced (equal and opposite)", d: ["There are no forces", "Gravity is switched off", "The forces are unbalanced"] },
+    { q: "Which force slows a bike down when you stop pedalling on a flat road?", a: "Friction (and air resistance)", d: ["Gravity pulling it back", "Magnetism", "Upthrust"] },
+    { q: "A parachute works because it increases...", a: "air resistance, slowing the fall", d: ["gravity", "the person's weight", "friction with the ground"] },
+    { q: "Unbalanced forces on a moving object will change its...", a: "speed or direction", d: ["colour", "mass", "temperature"] },
+    { q: "Why is it easier to lift a heavy load using a lever?", a: "The lever lets a smaller force do the same job", d: ["It removes gravity", "It makes the load lighter", "It adds friction"] },
+    { q: "A heavy box is hard to push because of the force of...", a: "friction between the box and the floor", d: ["upthrust", "magnetism", "air resistance only"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.magnetism = (rng) => {
+  const set = [
+    { q: "Two NORTH poles of magnets are brought together. What happens?", a: "They repel (push apart)", d: ["They attract", "Nothing happens", "They stick and stay"] },
+    { q: "Which material would a magnet attract?", a: "An iron nail", d: ["A plastic ruler", "A copper coin", "A wooden block"] },
+    { q: "A magnet can pick up a paperclip through a thin sheet of paper. This shows that...", a: "a magnetic field can act through some materials", d: ["paper is magnetic", "the magnet touches the clip", "gravity pulls the clip"] },
+    { q: "Where is a bar magnet's pull STRONGEST?", a: "At the poles (the ends)", d: ["In the middle", "It is equal everywhere", "Just off the surface"] },
+    { q: "Which is NOT attracted to a magnet?", a: "Aluminium", d: ["Iron", "Steel", "Nickel"] },
+    { q: "A compass needle points north because...", a: "the Earth acts like a giant magnet", d: ["north is uphill", "the Sun pulls it", "it is heaviest at that end"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
+GEN.energy_forms = (rng) => {
+  const set = [
+    { q: "When you switch on a torch, energy is mainly transferred from chemical (battery) to...", a: "light and thermal (heat) energy", d: ["sound and nuclear energy", "kinetic and gravity energy", "elastic energy only"] },
+    { q: "A stretched rubber band stores which type of energy?", a: "Elastic (strain) energy", d: ["Chemical energy", "Light energy", "Sound energy"] },
+    { q: "A moving car has kinetic energy. Where did most of this energy come from?", a: "Chemical energy in the fuel", d: ["Light from the Sun directly", "Sound from the engine", "The colour of the car"] },
+    { q: "Which is a RENEWABLE energy resource?", a: "Wind", d: ["Coal", "Oil", "Natural gas"] },
+    { q: "A ball is held high up. As it falls, its energy changes from gravitational potential to...", a: "kinetic energy", d: ["chemical energy", "elastic energy", "light energy"] },
+    { q: "Energy cannot be created or destroyed \u2014 it is only...", a: "transferred from one form to another", d: ["used up and gone", "made by machines", "turned into matter"] }
+  ];
+  const p = R.pick(rng, set); return mcq(rng, p.q, p.a, p.d, `Correct: ${p.a}.`);
+};
+
 /* ---- public API used by app.js ---------------------------------------- */
 window.ContentEngine = {
   makeRng,
