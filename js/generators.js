@@ -1001,17 +1001,18 @@ GEN.data_mean_hard = (rng) => {
   const t = R.int(rng, 0, 2);
   if (t === 0) { // missing value given the mean
     let vals, missing, mean, n, guard = 0;
-    do { n = R.int(rng, 4, 6); mean = R.int(rng, 20, 60); vals = Array.from({ length: n - 1 }, () => R.int(rng, 10, 80)); missing = mean * n - vals.reduce((a, b) => a + b, 0); guard++; } while ((missing < 1 || missing > 150) && guard < 40);
-    return mcqNum(rng, `The mean of ${n} numbers is ${mean}. Four of them are ${vals.join(", ")}. Find the missing number.`, missing, [mean, mean * n, missing + 10, missing - 10], `Total must be ${mean}\u00D7${n}=${mean * n}. Subtract the known ${vals.reduce((a, b) => a + b, 0)} \u2192 ${missing}.`);
+    do { n = R.int(rng, 4, 6); mean = R.int(rng, 30, 85); vals = Array.from({ length: n - 1 }, () => R.int(rng, 18, 98)); missing = mean * n - vals.reduce((a, b) => a + b, 0); guard++; } while ((missing < 1 || missing > 170) && guard < 40);
+    const known0 = vals.reduce((a, b) => a + b, 0);
+    return mcqNum(rng, `The mean of ${n} numbers is ${mean}. The other ${n - 1} numbers are ${vals.join(", ")}. Find the missing number.`, missing, [mean, mean * n, missing + 10, missing - 10], `Total must be ${mean}\u00D7${n}=${mean * n}. Subtract the known ${known0} \u2192 ${missing}.`);
   }
   if (t === 1) { // combined mean of two groups
     let a, b, ma, mb, mean, guard = 0;
-    do { a = R.int(rng, 3, 6); b = R.int(rng, 3, 6); ma = R.int(rng, 10, 30); mb = R.int(rng, 10, 30); mean = (a * ma + b * mb) / (a + b); guard++; } while (!Number.isInteger(mean) && guard < 40);
+    do { a = R.int(rng, 3, 8); b = R.int(rng, 3, 8); ma = R.int(rng, 12, 48); mb = R.int(rng, 12, 48); mean = (a * ma + b * mb) / (a + b); guard++; } while (!Number.isInteger(mean) && guard < 60);
     const total = a * ma + b * mb;
     return mcqNum(rng, `A group of ${a} pupils has a mean score of ${ma}. A second group of ${b} pupils has a mean of ${mb}. What is the mean of all ${a + b} pupils together?`, mean, [Math.round((ma + mb) / 2), ma + mb, mean + 2, mean - 2], `Total marks = ${a}\u00D7${ma}+${b}\u00D7${mb}=${total}. Divide by ${a + b}: ${mean}.`);
   }
   let data, sum, n = 6, guard = 0;
-  do { data = Array.from({ length: n }, () => R.int(rng, 20, 90)); sum = data.reduce((a, b) => a + b, 0); const rem = sum % n; data[0] -= rem; sum -= rem; guard++; } while (data[0] < 1 && guard < 40);
+  do { data = Array.from({ length: n }, () => R.int(rng, 25, 120)); sum = data.reduce((a, b) => a + b, 0); const rem = sum % n; data[0] -= rem; sum -= rem; guard++; } while (data[0] < 1 && guard < 40);
   const mean = sum / n;
   return mcqNum(rng, `Find the mean of these six numbers: ${data.join(", ")}.`, mean, [mean + 3, mean - 4, Math.max(...data), Math.round(sum / (n - 1))], `Add all six (${sum}) and divide by ${n}: ${mean}.`);
 };
@@ -1071,26 +1072,29 @@ GEN.frac_to_dec_pct = (rng) => {
 };
 
 GEN.simplify_fraction = (rng) => {
-  const g = R.int(rng, 4, 12), a = R.int(rng, 2, 7), b = a + R.int(rng, 1, 6), N = a * g, D = b * g;
+  const g = R.int(rng, 6, 16), a = R.int(rng, 2, 8), b = a + R.int(rng, 1, 7), N = a * g, D = b * g;
   return mcq(rng, `Write ${N}/${D} in its LOWEST terms.`, `${a}/${b}`, [`${a + 1}/${b}`, `${a}/${b + 1}`, `${a + 1}/${b + 1}`], `The HCF of ${N} and ${D} is ${g}; divide both \u2192 ${a}/${b}.`);
 };
 
 GEN.add_sub_fraction = (rng) => {
-  const d1 = R.pick(rng, [2, 3, 4, 5, 6]); let d2 = R.pick(rng, [3, 4, 5, 6, 8]); if (d2 === d1) d2 = (d1 === 8 ? 6 : d1 + 1);
-  let n1 = R.int(rng, 1, d1 - 1), n2 = R.int(rng, 1, d2 - 1);
-  let D1 = d1, D2 = d2;
-  const L = lcm2(d1, d2);
-  let A = n1 * (L / d1), B = n2 * (L / d2), num, sign;
-  const add = rng() < 0.6;
-  if (add) { num = A + B; sign = "+"; }
-  else { if (A < B) { let t = A; A = B; B = t; t = n1; n1 = n2; n2 = t; t = D1; D1 = D2; D2 = t; } num = A - B; sign = "\u2212"; }
-  const g = gcd(Math.max(1, num), L), rn = num / g, rd = L / g;
-  const ansStr = rd === 1 ? `${rn}` : `${rn}/${rd}`;
+  const pool = [3, 4, 5, 6, 8, 10, 12];
+  let D1, D2, n1, n2, A, B, num, sign, L, guard = 0;
+  const add = rng() < 0.55;
+  do {
+    D1 = R.pick(rng, pool); D2 = R.pick(rng, pool.filter(x => x !== D1));
+    n1 = R.int(rng, 1, D1 - 1); n2 = R.int(rng, 1, D2 - 1);
+    L = lcm2(D1, D2); A = n1 * (L / D1); B = n2 * (L / D2);
+    if (add) { num = A + B; sign = "+"; }
+    else { if (A < B) { let t = A; A = B; B = t; t = n1; n1 = n2; n2 = t; t = D1; D1 = D2; D2 = t; } num = A - B; sign = "\u2212"; }
+    guard++;
+  } while ((num <= 0 || num >= L || A === B) && guard < 80);
+  const g = gcd(num, L), rn = num / g, rd = L / g;
+  const ansStr = `${rn}/${rd}`;
   return mcq(rng, `Work out  ${n1}/${D1} ${sign} ${n2}/${D2}  and give your answer in its lowest terms.`, ansStr, [`${n1 + n2}/${D1 + D2}`, `${rn + 1}/${rd}`, `${rn}/${rd + 2}`], `Use the common denominator ${L}: ${A}/${L} ${sign} ${B}/${L} = ${num}/${L}${g > 1 ? ` = ${ansStr}` : ""}.`);
 };
 
 GEN.frac_of = (rng) => {
-  const den = R.pick(rng, [3, 4, 5, 6, 8]), num = R.int(rng, 1, den - 1), whole = den * R.int(rng, 4, 12), part = whole * num / den;
+  const den = R.pick(rng, [3, 4, 5, 6, 8, 10, 12]), num = R.int(rng, 1, den - 1), whole = den * R.int(rng, 6, 20), part = whole * num / den;
   if (rng() < 0.5) { const remain = whole - part; return mcqNum(rng, `In a school of ${whole} pupils, ${num}/${den} walk to school. How many do NOT walk?`, remain, [part, whole, remain + den, Math.max(remain - num, 1)], `Walkers = ${num}/${den} \u00D7 ${whole} = ${part}. Not walking = ${whole} \u2212 ${part} = ${remain}.`); }
   return mcqNum(rng, `What is ${num}/${den} of ${whole}?`, part, [whole - part, Math.round(whole / den), part + num, Math.floor(whole / Math.max(num, 1))], `${whole} \u00F7 ${den} = ${whole / den}, then \u00D7 ${num} = ${part}.`);
 };
@@ -1098,23 +1102,23 @@ GEN.frac_of = (rng) => {
 GEN.ratio_simple = (rng) => {
   let [a, b, c] = R.shuffle(rng, [1, 2, 3, 4, 5, 6]).slice(0, 3);
   const g0 = gcd(gcd(a, b), c); a /= g0; b /= g0; c /= g0;
-  const part = R.int(rng, 2, 8), total = (a + b + c) * part, mx = Math.max(a, b, c), mn = Math.min(a, b, c);
+  const part = R.int(rng, 3, 12), total = (a + b + c) * part, mx = Math.max(a, b, c), mn = Math.min(a, b, c);
   if (rng() < 0.5) return mcqNum(rng, `Three friends share ${total} marbles in the ratio ${a}:${b}:${c}. How many does the friend with the LARGEST share get?`, mx * part, [mn * part, total, part, mx * part + part], `Parts = ${a + b + c}. One part = ${total} \u00F7 ${a + b + c} = ${part}. Largest = ${mx} \u00D7 ${part}.`);
   return mcq(rng, `Simplify the ratio  ${a * part} : ${b * part} : ${c * part}  to its simplest form.`, `${a}:${b}:${c}`, [`${b}:${a}:${c}`, `${a * 2}:${b * 2}:${c * 2}`, `${a + 1}:${b}:${c}`], `Divide all three by ${part}: ${a}:${b}:${c}.`);
 };
 
 GEN.ratio_share = (rng) => {
-  let [a, b] = R.shuffle(rng, [2, 3, 4, 5, 7]).slice(0, 2);
-  const part = R.int(rng, 3, 9), total = (a + b) * part, mx = Math.max(a, b), mn = Math.min(a, b), t = R.int(rng, 0, 2);
+  let [a, b] = R.shuffle(rng, [2, 3, 4, 5, 7, 8, 9]).slice(0, 2);
+  const part = R.int(rng, 4, 14), total = (a + b) * part, mx = Math.max(a, b), mn = Math.min(a, b), t = R.int(rng, 0, 2);
   if (t === 0) return mcqNum(rng, `\u00A3${total} is shared in the ratio ${a}:${b}. How much is the SMALLER share?`, mn * part, [mx * part, total, part, mn * part + part], `One part = \u00A3${part}. Smaller share = ${mn} \u00D7 ${part}.`);
-  if (t === 1) { const diff = (mx - mn) * part; return mcqNum(rng, `Two people share money in the ratio ${a}:${b}. One receives \u00A3${diff} MORE than the other. How much was shared altogether?`, total, [diff, mx * part, total + part, diff * 2], `The difference is ${mx - mn} part(s) = \u00A3${diff}, so one part = \u00A3${part}. Total = ${a + b} parts = \u00A3${total}.`); }
+  if (t === 1) { const diff = (mx - mn) * part; return mcqNum(rng, `Two people share money in the ratio ${a}:${b}. One receives \u00A3${diff} MORE than the other. How much was shared altogether?`, total, [diff, mx * part, total + part, diff * 2], `The difference is ${mx - mn} ${mx - mn === 1 ? "part" : "parts"} = \u00A3${diff}, so one part = \u00A3${part}. Total = ${a + b} parts = \u00A3${total}.`); }
   const bigger = mx * part;
   return mcqNum(rng, `Sweets are shared in the ratio ${a}:${b}. The larger share is ${bigger} sweets. How many sweets were there in total?`, total, [bigger, mn * part, total + part, bigger + part], `Larger = ${mx} parts = ${bigger}, so one part = ${part}. Total = ${a + b} parts = ${total}.`);
 };
 
 GEN.decimal_ops = (rng) => {
   const t = R.int(rng, 0, 2);
-  if (t === 0) { const a = R.int(rng, 15, 80) / 10, b = R.int(rng, 2, 9), c = R.int(rng, 11, 40) / 10, ans = +(a * b - c).toFixed(2); return mcqNum(rng, `Work out  ${a} \u00D7 ${b} \u2212 ${c}.`, ans, [+(a * b - c + 1).toFixed(2), +((a - c) * b).toFixed(2), +(a * b + c).toFixed(2), +(ans - 0.5).toFixed(2)], `\u00D7 before \u2212: ${a}\u00D7${b}=${+(a * b).toFixed(2)}; then \u2212${c} = ${ans}.`); }
+  if (t === 0) { const a = R.int(rng, 21, 95) / 10, b = R.int(rng, 3, 12), c = R.int(rng, 15, 60) / 10, ans = +(a * b - c).toFixed(2); return mcqNum(rng, `Work out  ${a} \u00D7 ${b} \u2212 ${c}.`, ans, [+(a * b - c + 1).toFixed(2), +((a - c) * b).toFixed(2), +(a * b + c).toFixed(2), +(ans - 0.5).toFixed(2)], `\u00D7 before \u2212: ${a}\u00D7${b}=${+(a * b).toFixed(2)}; then \u2212${c} = ${ans}.`); }
   if (t === 1) { const q = R.int(rng, 12, 60) / 10, n = R.pick(rng, [2, 4, 5]), a = +(q * n).toFixed(1); return mcqNum(rng, `Work out  ${a} \u00F7 ${n}.`, q, [+(a - n).toFixed(2), +(q + 0.5).toFixed(2), +(a / (n + 1)).toFixed(2), +(q - 0.3).toFixed(2)], `${a} \u00F7 ${n} = ${q}.`); }
   const a = R.int(rng, 10, 50) / 100, b = R.int(rng, 10, 90) / 100, ans = +(a + b).toFixed(2);
   return mcqNum(rng, `Work out  ${a} + ${b}.`, ans, [+(a * b).toFixed(3), +(ans + 0.1).toFixed(2), +Math.abs(a - b).toFixed(2), +(ans - 0.02).toFixed(2)], `Line up the decimal points: ${a} + ${b} = ${ans}.`);
@@ -1122,14 +1126,14 @@ GEN.decimal_ops = (rng) => {
 
 GEN.percentage = (rng) => {
   const t = R.int(rng, 0, 2);
-  if (t === 0) { const pct = R.pick(rng, [5, 10, 20, 25, 40, 50]), whole = R.int(rng, 3, 15) * 20, part = whole * pct / 100; return mcqNum(rng, `${pct}% of a number is ${part}. What is the number?`, whole, [part, part * 2, whole + pct, part + pct], `If ${pct}% = ${part}, then 1% = ${part / pct}, so 100% = ${whole}.`); }
+  if (t === 0) { const pct = R.pick(rng, [5, 10, 20, 25, 40, 50]), whole = R.int(rng, 4, 22) * 20, part = whole * pct / 100; return mcqNum(rng, `${pct}% of a number is ${part}. What is the number?`, whole, [part, part * 2, whole + pct, part + pct], `If ${pct}% = ${part}, then 1% = ${part / pct}, so 100% = ${whole}.`); }
   if (t === 1) return mcqNum(rng, `A \u00A3200 jacket rises in price by 20%, then is reduced by 20% in a sale. What is the final price?`, 192, [200, 208, 184, 196], `+20% \u2192 \u00A3240; then \u221220% of 240 = \u00A348 \u2192 \u00A3192 (it does NOT return to \u00A3200).`);
-  const whole = R.int(rng, 3, 15) * 20, pct = R.pick(rng, [15, 35, 45, 65, 12]), part = whole * pct / 100, ans = Number.isInteger(part) ? part : +part.toFixed(2);
+  const whole = R.int(rng, 5, 24) * 20, pct = R.pick(rng, [12, 15, 35, 45, 65, 85]), part = whole * pct / 100, ans = Number.isInteger(part) ? part : +part.toFixed(2);
   return mcqNum(rng, `Find ${pct}% of ${whole}.`, ans, [whole - pct, +(ans + pct).toFixed(2), +(ans / 2).toFixed(2), +(whole * pct / 1000).toFixed(2)], `${pct}% = ${pct}/100 \u00D7 ${whole} = ${ans}.`);
 };
 
 GEN.integers = (rng) => {
-  const a = R.int(rng, -9, -2), b = R.int(rng, 2, 9), c = R.int(rng, -8, -2), t = R.int(rng, 0, 2);
+  const a = R.int(rng, -15, -3), b = R.int(rng, 3, 12), c = R.int(rng, -12, -3), t = R.int(rng, 0, 2);
   if (t === 0) { const ans = a - b * c; return mcqNum(rng, `Work out  ${a} \u2212 ${b} \u00D7 (${c}).`, ans, [(a - b) * c, a - b + c, a + b * c, ans + 2], `\u00D7 first: ${b}\u00D7(${c})=${b * c}; ${a}\u2212(${b * c})=${ans}.`); }
   if (t === 1) { const ans = (a + c) * b; return mcqNum(rng, `Work out  (${a} + ${c}) \u00D7 ${b}.`, ans, [a + c * b, a * b + c, ans + b, -ans], `Brackets first: ${a}+(${c})=${a + c}; \u00D7${b}=${ans}.`); }
   const d = R.int(rng, 2, 6), val = b * d, ans = a - val / d;
@@ -1137,7 +1141,7 @@ GEN.integers = (rng) => {
 };
 
 GEN.order_ops_hard = (rng) => {
-  const a = R.int(rng, 2, 6), b = R.int(rng, 2, 6), c = R.int(rng, 2, 5), d = R.int(rng, 2, 6), t = R.int(rng, 0, 2);
+  const a = R.int(rng, 3, 9), b = R.int(rng, 3, 8), c = R.int(rng, 2, 7), d = R.int(rng, 3, 8), t = R.int(rng, 0, 2);
   if (t === 0) { const ans = a * (b + c) - d * d; return mcqNum(rng, `Work out  ${a} \u00D7 (${b} + ${c}) \u2212 ${d}\u00B2.`, ans, [a * b + c - d * d, (a * b + c - d) * d, a * (b + c) - d * 2, ans + d], `Brackets ${b + c}, \u00D7${a}=${a * (b + c)}; ${d}\u00B2=${d * d}; subtract \u2192 ${ans}.`); }
   if (t === 1) { const inner = b + c, ans = a * a - inner * d; return mcqNum(rng, `Work out  ${a}\u00B2 \u2212 (${b} + ${c}) \u00D7 ${d}.`, ans, [(a * a - inner) * d, a * 2 - inner * d, a * a - inner + d, ans - 1], `${a}\u00B2=${a * a}; (${b}+${c})\u00D7${d}=${inner * d}; ${a * a}\u2212${inner * d}=${ans}.`); }
   const q = R.int(rng, 2, 6), prod = b * q, ans = a + prod / b - c;
@@ -1145,25 +1149,25 @@ GEN.order_ops_hard = (rng) => {
 };
 
 GEN.algebra_eval = (rng) => {
-  const x = R.int(rng, 2, 6), y = R.int(rng, 2, 6);
-  if (rng() < 0.5) { const a = R.int(rng, 2, 5), b = R.int(rng, 2, 5), ans = a * x * x - b * y; return mcqNum(rng, `If x = ${x} and y = ${y}, find the value of  ${a}x\u00B2 \u2212 ${b}y.`, ans, [a * x * 2 - b * y, a * x - b * y, a * x * x + b * y, ans + a], `x\u00B2=${x * x}; ${a}\u00D7${x * x}=${a * x * x}; \u2212${b}\u00D7${y}=${ans}.`); }
+  const x = R.int(rng, 3, 9), y = R.int(rng, 3, 9);
+  if (rng() < 0.5) { const a = R.int(rng, 2, 6), b = R.int(rng, 2, 6), ans = a * x * x - b * y; return mcqNum(rng, `If x = ${x} and y = ${y}, find the value of  ${a}x\u00B2 \u2212 ${b}y.`, ans, [a * x * 2 - b * y, a * x - b * y, a * x * x + b * y, ans + a], `x\u00B2=${x * x}; ${a}\u00D7${x * x}=${a * x * x}; \u2212${b}\u00D7${y}=${ans}.`); }
   const a = R.int(rng, 2, 5), b = R.int(rng, 2, 6), c = R.int(rng, 1, 9), ans = a * x * y + b * x - c;
   return mcqNum(rng, `If x = ${x} and y = ${y}, find the value of  ${a}xy + ${b}x \u2212 ${c}.`, ans, [a * (x + y) + b * x - c, a * x * y + b - c, a * x * y + b * x + c, ans - 2], `xy=${x * y}; ${a}\u00D7${x * y}=${a * x * y}; +${b}\u00D7${x}=${a * x * y + b * x}; \u2212${c}=${ans}.`);
 };
 
 GEN.algebra_solve = (rng) => {
-  const x = R.int(rng, 2, 9);
-  if (rng() < 0.5) { const a = R.int(rng, 3, 7), c = R.int(rng, 1, a - 1), b = R.int(rng, 1, 10), d = b + (a - c) * x; return mcqNum(rng, `Solve for x:   ${a}x + ${b} = ${c}x + ${d}`, x, [x + 1, x - 1, d - b, x + 2], `Subtract ${c}x from both sides: ${a - c}x + ${b} = ${d}. Subtract ${b}: ${a - c}x = ${d - b}. Divide by ${a - c}: x = ${x}.`); }
-  const a = R.int(rng, 2, 5), b = R.int(rng, 1, 6), rhs = a * (x + b);
+  const x = R.int(rng, 3, 12);
+  if (rng() < 0.5) { const a = R.int(rng, 5, 10), c = R.int(rng, 2, a - 2), b = R.int(rng, 1, 12), d = b + (a - c) * x; return mcqNum(rng, `Solve for x:   ${a}x + ${b} = ${c}x + ${d}`, x, [x + 1, x - 1, d - b, x + 2], `Subtract ${c}x from both sides: ${a - c}x + ${b} = ${d}. Subtract ${b}: ${a - c}x = ${d - b}. Divide by ${a - c}: x = ${x}.`); }
+  const a = R.int(rng, 3, 7), b = R.int(rng, 2, 9), rhs = a * (x + b);
   return mcqNum(rng, `Solve for x:   ${a}(x + ${b}) = ${rhs}`, x, [x + b, x + 1, rhs - b, x - 1], `Divide by ${a}: x + ${b} = ${rhs / a}. Subtract ${b}: x = ${x}.`);
 };
 
 GEN.mensuration = (rng) => {
   const t = R.int(rng, 0, 3);
-  if (t === 0) { const w = R.int(rng, 3, 12), l = R.int(rng, 4, 15), area = w * l; return mcqNum(rng, `A rectangle has an area of ${area} cm\u00B2 and a width of ${w} cm. Find its LENGTH.`, l, [area - w, area, l + w, Math.round(area / (w + 1))], `Length = area \u00F7 width = ${area} \u00F7 ${w} = ${l} cm.`); }
-  if (t === 1) { const A = R.int(rng, 8, 14), B = R.int(rng, 6, 12), a = R.int(rng, 2, A - 3), b = R.int(rng, 2, B - 3), ans = A * B - a * b; return mcqNum(rng, `An L-shape is a ${A} cm \u00D7 ${B} cm rectangle with a ${a} cm \u00D7 ${b} cm corner cut out. Find its area.`, ans, [A * B + a * b, A * B, 2 * (A + B), ans - a], `Whole rectangle ${A}\u00D7${B}=${A * B}; remove ${a}\u00D7${b}=${a * b}; area = ${ans} cm\u00B2.`); }
-  if (t === 2) { const l = R.int(rng, 2, 6), w = R.int(rng, 2, 6), h = R.int(rng, 2, 6), ans = 2 * (l * w + w * h + l * h); return mcqNum(rng, `Find the total SURFACE AREA of a cuboid measuring ${l} \u00D7 ${w} \u00D7 ${h} cm.`, ans, [l * w * h, l * w + w * h + l * h, 2 * (l + w + h), ans + l], `SA = 2(lw+wh+lh) = 2(${l * w}+${w * h}+${l * h}) = ${ans} cm\u00B2.`); }
-  const b = R.int(rng, 3, 12), h = R.int(rng, 2, 6) * 2, tri = b * h / 2;
+  if (t === 0) { const w = R.int(rng, 4, 15), l = R.int(rng, 6, 22), area = w * l; return mcqNum(rng, `A rectangle has an area of ${area} cm\u00B2 and a width of ${w} cm. Find its LENGTH.`, l, [area - w, area, l + w, Math.round(area / (w + 1))], `Length = area \u00F7 width = ${area} \u00F7 ${w} = ${l} cm.`); }
+  if (t === 1) { const A = R.int(rng, 10, 18), B = R.int(rng, 8, 15), a = R.int(rng, 2, A - 3), b = R.int(rng, 2, B - 3), ans = A * B - a * b; return mcqNum(rng, `An L-shape is a ${A} cm \u00D7 ${B} cm rectangle with a ${a} cm \u00D7 ${b} cm corner cut out. Find its area.`, ans, [A * B + a * b, A * B, 2 * (A + B), ans - a], `Whole rectangle ${A}\u00D7${B}=${A * B}; remove ${a}\u00D7${b}=${a * b}; area = ${ans} cm\u00B2.`); }
+  if (t === 2) { const l = R.int(rng, 3, 9), w = R.int(rng, 3, 9), h = R.int(rng, 3, 9), ans = 2 * (l * w + w * h + l * h); return mcqNum(rng, `Find the total SURFACE AREA of a cuboid measuring ${l} \u00D7 ${w} \u00D7 ${h} cm.`, ans, [l * w * h, l * w + w * h + l * h, 2 * (l + w + h), ans + l], `SA = 2(lw+wh+lh) = 2(${l * w}+${w * h}+${l * h}) = ${ans} cm\u00B2.`); }
+  const b = R.int(rng, 4, 16), h = R.int(rng, 3, 9) * 2, tri = b * h / 2;
   return mcqNum(rng, `A triangle has an area of ${tri} cm\u00B2 and a base of ${b} cm. Find its HEIGHT.`, h, [h + 2, Math.max(h - 3, 1), b, tri], `Area = \u00BD \u00D7 base \u00D7 height, so height = 2 \u00D7 area \u00F7 base = ${2 * tri} \u00F7 ${b} = ${h} cm.`);
 };
 
@@ -1171,7 +1175,7 @@ GEN.hcf_lcm = (rng) => {
   const t = R.int(rng, 0, 2);
   if (t === 0) { const a = R.pick(rng, [4, 6, 8, 9, 12]), b = R.pick(rng, [5, 6, 10, 15]), l = lcm2(a, b); return mcqNum(rng, `One bell rings every ${a} minutes and another every ${b} minutes. If they ring together now, after how many minutes will they NEXT ring together?`, l, [a * b, a + b, gcd(a, b), l + a], `They coincide at the LCM of ${a} and ${b} = ${l} minutes.`); }
   if (t === 1) { const g = R.int(rng, 3, 9), a = g * R.int(rng, 2, 5), b = g * R.int(rng, 2, 5), G = gcd(a, b); return mcqNum(rng, `Two ribbons are ${a} cm and ${b} cm long. They are cut into equal pieces that are as LONG as possible with none left over. How long is each piece?`, G, [a * b, a + b, Math.min(a, b), G + 1], `The longest equal piece = HCF of ${a} and ${b} = ${G} cm.`); }
-  const a = R.int(rng, 2, 6), b = R.int(rng, 2, 6), c = R.int(rng, 2, 6), l = lcm2(lcm2(a, b), c);
+  const a = R.int(rng, 2, 9), b = R.int(rng, 2, 9), c = R.int(rng, 2, 9), l = lcm2(lcm2(a, b), c);
   return mcqNum(rng, `Find the LCM of ${a}, ${b} and ${c}.`, l, [a * b * c, a + b + c, gcd(gcd(a, b), c), l + a], `The smallest number all three divide into exactly is ${l}.`);
 };
 
